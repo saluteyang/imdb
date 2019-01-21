@@ -416,3 +416,10 @@ lm_test = smf.ols('gross ~ metacritic + cci + openingwknd + year + sequel +'
               data=df_logs_test)
 fit_test = lm_test.fit()
 fit_test.summary()  # 0.941 R-square! (adjusted 0.915)
+
+# saving some model results to pickle files
+with open('fit10.pickle', 'wb') as handle:
+    pickle.dump(fit10, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+with open('fit13.pickle', 'wb') as handle:
+    pickle.dump(fit13, handle, protocol=pickle.HIGHEST_PROTOCOL)
