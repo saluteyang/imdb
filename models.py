@@ -22,7 +22,8 @@ sns.set()
 # url = 'https://www.imdb.com/search/title?genres=horror&sort=boxoffice_gross_us,desc&start=101&explore=title_type,genres&ref_=adv_nxt'
 # url = 'https://www.imdb.com/search/title?genres=horror&sort=boxoffice_gross_us,desc&start=151&explore=title_type,genres&ref_=adv_nxt'
 # url = 'https://www.imdb.com/search/title?genres=horror&sort=boxoffice_gross_us,desc&start=201&explore=title_type,genres&ref_=adv_nxt'
-url = 'https://www.imdb.com/search/title?genres=horror&sort=boxoffice_gross_us,desc&start=251&explore=title_type,genres&ref_=adv_nxt'
+# url = 'https://www.imdb.com/search/title?genres=horror&sort=boxoffice_gross_us,desc&start=251&explore=title_type,genres&ref_=adv_nxt'
+url = 'https://www.imdb.com/search/title?genres=horror&sort=boxoffice_gross_us,desc&start=301&explore=title_type,genres&ref_=adv_nxt'
 
 include_list_url, include_list_title, year, title_text = getTitle_getURL(url)
 
@@ -112,17 +113,11 @@ df = df.drop_duplicates()
 # df.reset_index(inplace=True)
 # df = df.rename(columns={'index': 'title'})
 
-sequel = pd.read_csv('sequel_flag_test.csv')
+sequel = pd.read_csv('sequel_flag_test2.csv')
 df = df.merge(sequel, on='title')
 
-# run content score section below
-content_df = pd.DataFrame(content_scores_backup)  # change back to content_scores if no multiple runs
-content_df = content_df.T
-
-df = df.merge(content_df, left_index=True, right_index=True)
-df_logs = df_logs.merge(content_df, left_index=True, right_index=True)
-
-df.to_csv('df_merged_test.csv')
+# df.to_csv('df_merged_test2.csv')
+# df.to_csv('df_merged_test.csv')
 
 # add distance to nearest holiday
 import holidays
@@ -251,6 +246,7 @@ df_logs_test = df_test.copy()
 df_logs_test[['budget', 'openingwknd', 'gross']] = df_logs_test[['budget', 'openingwknd', 'gross']].apply(np.log)
 
 df_train = pd.read_csv('df_merged_final.csv')
+# df_train = df_train.sort_values(by='openingwknd')[4:]
 df_train['year'] = pd.to_datetime(df_train['release_date']).dt.year
 df_train = df_train.loc[:, ['budget', 'openingwknd', 'metacritic', 'locs',
                      'cci', 'sequel', 'alcohol_score', 'frightening_score',
@@ -268,6 +264,8 @@ df_x_test_logs = df_logs_test.drop(columns=['gross'])
 df_y_test = df_test.loc[:, 'gross']
 df_y_test_logs = df_logs_test.loc[:, 'gross']
 
+# df_logs_test.sort_values(by='openingwknd').head(5)
+
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression, Lasso, LassoCV, Ridge, RidgeCV
 from sklearn.metrics import r2_score
@@ -275,7 +273,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import PolynomialFeatures
 
-std = StandardScaler()  # standard scaler here or after polynomialfeatures transform??
+std = StandardScaler()  # standard scaler after polynomialfeatures transform so coefs can be compared
 std.fit(df_x_train)
 x_train = std.transform(df_x_train)
 x_test = std.transform(df_x_test)
@@ -287,7 +285,7 @@ x_test = std.transform(df_x_test)
 lasso_model = LassoCV(cv=5)
 reg = lasso_model.fit(x_train, df_y_train)
 reg.score(x_train, df_y_train)  # 0.703, final: 0.74
-reg.score(x_test, df_y_test)  # -1.362, final: 0.05
+reg.score(x_test, df_y_test)  # -1.362, final: 0.15
 
 # reg_linear = LinearRegression().fit(x_train, df_y_train)
 # reg_linear.score(x_train, df_y_train)
@@ -295,16 +293,23 @@ reg.score(x_test, df_y_test)  # -1.362, final: 0.05
 
 lasso_model = LassoCV(cv=5)
 reg = lasso_model.fit(df_x_train_logs, df_y_train_logs)
-reg.score(df_x_train_logs, df_y_train_logs)  # 0.699, final: 0.682
-reg.score(df_x_test_logs, df_y_test_logs)  # -0.133, final: 0.451
+reg.score(df_x_train_logs, df_y_train_logs)  # 0.699, final: 0.816
+reg.score(df_x_test_logs, df_y_test_logs)  # -0.133, final: 0.545
 
 reg.alpha_
 reg.coef_
 
 # fit polynomial model with interactions only
 polynomial_model = PolynomialFeatures(degree=2, interaction_only=True)
-x2_train = polynomial_model.fit_transform(x_train)
-x2_test = polynomial_model.fit_transform(x_test)
+x2_train = polynomial_model.fit_transform(df_x_train)
+x2_test = polynomial_model.fit_transform(df_x_test)
+
+# pass through standard scaler here
+std = StandardScaler()  # standard scaler after polynomialfeatures transform so coefs can be compared
+std.fit(x2_train)
+x2_train = std.transform(x2_train)
+x2_test = std.transform(x2_test)
+
 lasso_model2 = LassoCV(cv=5)
 reg2 = lasso_model2.fit(x2_train, df_y_train)
 
@@ -315,8 +320,8 @@ features_poly[features_poly.coefs != 0]
 features_poly['abs_coefs'] = abs(features_poly['coefs'])
 features_poly.sort_values(by='abs_coefs', ascending=False).head(12)
 
-reg2.score(x2_train, df_y_train)  # 0.786, final: 0.808
-reg2.score(x2_test, df_y_test)  # -1.5, final: 0.13
+reg2.score(x2_train, df_y_train)  # 0.786, final: 0.808, final rescaled: 0.76
+reg2.score(x2_test, df_y_test)  # -1.5, final: 0.13, final rescaled: 0.167
 
 # choosing top 10ish features and fitting them to the statsmodels OLS
 lm9 = smf.ols('gross ~ metacritic + cci + openingwknd + year + sequel +'
@@ -327,10 +332,25 @@ lm9 = smf.ols('gross ~ metacritic + cci + openingwknd + year + sequel +'
 fit9 = lm9.fit()
 fit9.summary()  # 0.693 R-square
 
+lm9_2 = smf.ols('gross ~ metacritic + cci + openingwknd + year +'
+                'openingwknd:cci + metacritic:profanity_score +'
+              'openingwknd:metacritic + openingwknd:profanity_score +'
+              'locs:profanity_score + budget:openingwknd',
+              data=df_train)
+fit9_2 = lm9_2.fit()
+fit9_2.summary()  # 0.721 R-square
+
 # fit polynomial model with full set
 polynomial_model = PolynomialFeatures(degree=2)
-x3_train = polynomial_model.fit_transform(x_train)
-x3_test = polynomial_model.fit_transform(x_test)
+x3_train = polynomial_model.fit_transform(df_x_train)
+x3_test = polynomial_model.fit_transform(df_x_test)
+
+# pass through standard scaler here
+std = StandardScaler()  # standard scaler after polynomialfeatures transform so coefs can be compared
+std.fit(x3_train)
+x3_train = std.transform(x3_train)
+x3_test = std.transform(x3_test)
+
 lasso_model3 = LassoCV(cv=5)
 reg3 = lasso_model3.fit(x3_train, df_y_train)
 
@@ -341,8 +361,12 @@ features_poly[features_poly.coefs != 0]
 features_poly['abs_coefs'] = abs(features_poly['coefs'])
 features_poly.sort_values(by='abs_coefs', ascending=False).head(12)
 
-reg3.score(x3_train, df_y_train)  # 0.821, final: 0.565
-reg3.score(x3_test, df_y_test)  # -5.37, final: 0.320
+reg3.score(x3_train, df_y_train)  # 0.821, final: 0.565, final rescaled: 0.765
+reg3.score(x3_test, df_y_test)  # -5.37, final: 0.320, final rescaled: 0.159
+
+from sklearn.model_selection import cross_val_score
+cross_val_score(lasso_model3, x3_train, df_y_train, cv=5)
+array([0.38766739, 0.0725077, 0.42630506, 0.28037138, 0.512336])
 
 # choosing top n features combined with features selected based on lm9 t-scores and fitting them to the statsmodels OLS
 # removing the individual polynomial degree 2 terms and replacing with log transformation
@@ -352,33 +376,49 @@ lm10 = smf.ols('gross ~ metacritic + cci + openingwknd + year + sequel +'
               'locs:profanity_score + budget:openingwknd',
               data=df_logs_train)
 fit10 = lm10.fit()
-fit10.summary()  # 0.767, final: 0.716
+fit10.summary()  # 0.767, final: 0.835
+
+lm10_2 = smf.ols('gross ~ metacritic + cci + openingwknd + year +'
+                'openingwknd:cci + metacritic:profanity_score +'
+              'openingwknd:metacritic + openingwknd:profanity_score +'
+              'locs:profanity_score + budget:openingwknd',
+              data=df_logs_train)
+fit10_2 = lm10_2.fit()
+fit10_2.summary()  # 0.833
 
 # predictions on the test set
 pred = fit10.predict(df_logs_test)
 
-# calculating test set r-squared
+# calculating test set r-squared (run first two lines as they are common to all)
 mean_test = df_logs_test.gross.mean()
 tot_ss = sum([(x - mean_test)**2 for x in df_logs_test.gross])
+
 # resid_ss = sum([(y - x)**2 for y in pred for x in df_logs.gross])  # this will loop over each element of b for each element of a
 resid_ss = sum([(y - x)**2 for y, x in zip(pred, df_logs_test.gross)])
 test_r_squared = 1 - (resid_ss / tot_ss)
-test_r_squared  # 0.277
+test_r_squared  # 0.277, 0.134
+
+# calculating test set r-squared
+pred = fit10_2.predict(df_logs_test)
+resid_ss = sum([(y - x)**2 for y, x in zip(pred, df_logs_test.gross)])
+test_r_squared = 1 - (resid_ss / tot_ss)
+test_r_squared  # 0.447, 0.15, 0.573
+##############################
 
 fig, ax = plt.subplots()
 ax.plot(df_logs_test.gross, 'o', label="test data")
-ax.plot(fit10.predict(df_logs_test), 'o', c='red', label="OLS prediction")
+ax.plot(fit10_2.predict(df_logs_test), 'o', c='red', label="OLS prediction")
 ax.legend(loc="best")
 ax.set_xticklabels('')
 ax.set_ylabel('log of gross')
-plt.savefig('test_v_pred.png', dpi=600, bbox_inches="tight")
-# plt.show()
+# plt.savefig('test_v_pred_final.png', dpi=600, bbox_inches="tight")
+plt.show()
 
 # error plots
 fig = plt.figure(figsize=(12,20))
-fig = sm.graphics.plot_partregress_grid(fit10, fig=fig)
-plt.savefig('partial_reg.png', dpi=600, bbox_inches="tight")
-# plt.show()
+fig = sm.graphics.plot_partregress_grid(fit10_2, fig=fig)
+# plt.savefig('partial_reg_final.png', dpi=600, bbox_inches="tight")
+plt.show()
 
 # removing components based on partial regression plots
 lm12 = smf.ols('gross ~ metacritic + cci + openingwknd + year + sequel +'
@@ -387,26 +427,48 @@ lm12 = smf.ols('gross ~ metacritic + cci + openingwknd + year + sequel +'
               'budget:openingwknd',
               data=df_logs_train)
 fit12 = lm12.fit()
-fit12.summary()  # 0.687 R-square
+fit12.summary()  # 0.818 R-square
+
+lm12_2 = smf.ols('gross ~ metacritic + cci + openingwknd + year +'
+              'openingwknd:metacritic + openingwknd:cci +'
+              'budget:openingwknd',
+              data=df_logs_train)
+fit12_2 = lm12_2.fit()
+fit12_2.summary()  # 0.806 R-square
 
 # calculating test set r-squared
 pred = fit12.predict(df_logs_test)
 resid_ss = sum([(y - x)**2 for y, x in zip(pred, df_logs_test.gross)])
 test_r_squared = 1 - (resid_ss / tot_ss)
-test_r_squared  # 0.231
+test_r_squared  # 0.521
+
+pred = fit12_2.predict(df_logs_test)
+resid_ss = sum([(y - x)**2 for y, x in zip(pred, df_logs_test.gross)])
+test_r_squared = 1 - (resid_ss / tot_ss)
+test_r_squared  # 0.538
 
 # keep only baseline features
 lm13 = smf.ols('gross ~ metacritic + cci + openingwknd + '
                'year + sequel',
               data=df_logs_train)
 fit13 = lm13.fit()
-fit13.summary()  # 0.669 R-square
+fit13.summary()  # 0.806 R-square
+
+lm13_2 = smf.ols('gross ~ metacritic + cci + openingwknd + year',
+              data=df_logs_train)
+fit13_2 = lm13_2.fit()
+fit13_2.summary()  # 0.801 R-square
 
 # calculating test set r-squared
 pred = fit13.predict(df_logs_test)
 resid_ss = sum([(y - x)**2 for y, x in zip(pred, df_logs_test.gross)])
 test_r_squared = 1 - (resid_ss / tot_ss)
-test_r_squared  # 0.372
+test_r_squared  # 0.524
+
+pred = fit13_2.predict(df_logs_test)
+resid_ss = sum([(y - x)**2 for y, x in zip(pred, df_logs_test.gross)])
+test_r_squared = 1 - (resid_ss / tot_ss)
+test_r_squared  # 0.504
 
 # if using lm10 specification on test
 lm_test = smf.ols('gross ~ metacritic + cci + openingwknd + year + sequel +'
@@ -415,7 +477,13 @@ lm_test = smf.ols('gross ~ metacritic + cci + openingwknd + year + sequel +'
               'locs:profanity_score + budget:openingwknd',
               data=df_logs_test)
 fit_test = lm_test.fit()
-fit_test.summary()  # 0.941 R-square! (adjusted 0.915)
+fit_test.summary()  # 0.729 R-square
+
+# if using simpler final model
+lm_test2 = smf.ols('gross ~ metacritic + cci + openingwknd + year',
+              data=df_logs_test)
+fit_test2 = lm_test2.fit()
+fit_test2.summary()  # 0.699 R-square
 
 # saving some model results to pickle files
 with open('fit10.pickle', 'wb') as handle:
@@ -423,3 +491,18 @@ with open('fit10.pickle', 'wb') as handle:
 
 with open('fit13.pickle', 'wb') as handle:
     pickle.dump(fit13, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+# coefficient comparison
+# model 13_2
+# intercept 49.266
+# metacritic 0.0104
+# cci 0.0332
+# openingwknd 0.5957
+# year -0.0225
+
+# model test2
+# intercept 65.9325
+# metacritic 0.0002 (not significant)
+# cci -0.0064 (not significant)
+# openingwknd 0.0463 (not significant)
+# year -0.0240
