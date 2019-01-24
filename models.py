@@ -23,7 +23,9 @@ sns.set()
 # url = 'https://www.imdb.com/search/title?genres=horror&sort=boxoffice_gross_us,desc&start=151&explore=title_type,genres&ref_=adv_nxt'
 # url = 'https://www.imdb.com/search/title?genres=horror&sort=boxoffice_gross_us,desc&start=201&explore=title_type,genres&ref_=adv_nxt'
 # url = 'https://www.imdb.com/search/title?genres=horror&sort=boxoffice_gross_us,desc&start=251&explore=title_type,genres&ref_=adv_nxt'
-url = 'https://www.imdb.com/search/title?genres=horror&sort=boxoffice_gross_us,desc&start=301&explore=title_type,genres&ref_=adv_nxt'
+# url = 'https://www.imdb.com/search/title?genres=horror&sort=boxoffice_gross_us,desc&start=301&explore=title_type,genres&ref_=adv_nxt'
+# url = 'https://www.imdb.com/search/title?genres=horror&sort=boxoffice_gross_us,desc&start=351&explore=title_type,genres&ref_=adv_nxt'
+url = 'https://www.imdb.com/search/title?genres=horror&sort=boxoffice_gross_us,desc&start=401&explore=title_type,genres&ref_=adv_nxt'
 
 include_list_url, include_list_title, year, title_text = getTitle_getURL(url)
 
@@ -32,14 +34,27 @@ movies_dict = dict.fromkeys(include_list_title)
 for i, movie in enumerate(include_list_url):
     movies_dict[include_list_title[i]] = onemoviestats(movie)
 
-# movies_dict_backup = movies_dict.copy()
-n = include_list_title.index("Shutter")
+# if above code raises exceptions, run the following; supply the title of the movie where the error occured
+# or simply skip over to continue from the next one
+if 'new_movies_dict' not in locals():
+    new_movies_dict = movies_dict.copy()
+
+n = include_list_title.index("The Gate")
 include_list_title = include_list_title[n:]
 include_list_url = include_list_url[n:]
 
-movies_dict_backup.update(movies_dict)
+movies_dict = dict.fromkeys(include_list_title)
+for i, movie in enumerate(include_list_url):
+    movies_dict[include_list_title[i]] = onemoviestats(movie)
 
-df = pd.DataFrame.from_dict(movies_dict_backup, orient='index')
+new_movies_dict.update(movies_dict)
+
+#if needed use dict comprehension to remove entries with none values
+movies_dict_backup = {k: v for k, v in new_movies_dict.items() if v is not None}
+new_movies_dict.clear()
+new_movies_dict.update(movies_dict_backup)
+
+df = pd.DataFrame.from_dict(new_movies_dict, orient='index')
 #######################################
 # supplemental information
 # optional
@@ -317,8 +332,10 @@ for i in range(1000, 10000, 1000):
     print(m.alpha, m.score(x3_train, df_y_train))
 
 # cross_val_score(LassoCV(), x3_train, df_y_train, cv=5)
+# cross_val_score(Lasso(random_state=13), x3_train, df_y_train, cv=5)
 # array([-0.88709572, -1.87439665,  0.89369045,  0.41807457,  0.08229462])
 # array([-0.8808291 , -2.19301234,  0.89369045,  0.46425809,  0.02950212])
+# array([-3.43285287, -8.31206484,  0.76166814,  0.21932813, -6.80803267])
 
 # mod_val = Lasso(random_state=11)
 # cross_validate(mod_val, x3_train, df_y_train, cv=5)
