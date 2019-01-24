@@ -234,3 +234,23 @@ def getContentScore(url):
         frightening_score = int(re.findall(r'\d+', str(content_prep5.parent))[0])
 
     return nudity_score, violence_score, profanity_score, alcohol_score, frightening_score
+
+def scoreTestLM(test_data, predictions):
+    mean_test = test_data['gross'].mean()
+    tot_ss = sum([(x - mean_test) ** 2 for x in test_data['gross']])
+
+    pred = predictions
+    resid_ss = sum([(y - x) ** 2 for y, x in zip(pred, test_data['gross'])])
+    test_r_squared = 1 - (resid_ss / tot_ss)
+    return test_r_squared
+
+def getCoefPolyFeatures(train_data, model_name, desc_n = None):
+    polynomial_model.get_feature_names()
+    polynomial_model.get_feature_names(train_data.columns)
+    features_poly = pd.DataFrame(
+        {'features': polynomial_model.get_feature_names(train_data.columns), 'coefs': model_name.coef_})
+    features_poly = features_poly[features_poly.coefs != 0]
+    features_poly['abs_coefs'] = abs(features_poly['coefs'])
+    if desc_n is not None:
+        features_poly = features_poly.sort_values(by='abs_coefs', ascending=False).head(desc_n)
+    return features_poly
